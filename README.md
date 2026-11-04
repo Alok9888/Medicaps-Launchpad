@@ -1,6 +1,4 @@
-# Medicaps Launchpad - Backend Foundation
 
-Clean, production-grade Spring Boot 3.x backend foundation for the Medicaps Launchpad platform, established using Java 21 and Maven.
 
 ---
 
