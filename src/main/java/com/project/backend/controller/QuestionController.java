@@ -41,7 +41,6 @@ public class QuestionController {
                 questionService.getQuestionBySlug(slug)
         );
     }
- 
 
     @GetMapping
     public ResponseEntity<Page<QuestionSummaryResponse>> getQuestions(
