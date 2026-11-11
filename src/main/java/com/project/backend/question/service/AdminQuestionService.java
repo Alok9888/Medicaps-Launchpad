@@ -36,6 +36,10 @@ public class AdminQuestionService {
     private final ProblemCompanyRepository problemCompanyRepository;
     private final QuestionProperties properties;
     private final EntityManager entityManager;
+    private final PublishCheckService publishCheckService;
+    private final SlugService slugService;
+    private final SanitizationService sanitizationService;
+    private final EditRulesService editRulesService;
 
     @Autowired
     public AdminQuestionService(
@@ -48,7 +52,11 @@ public class AdminQuestionService {
             ProblemLanguageRepository problemLanguageRepository,
             ProblemCompanyRepository problemCompanyRepository,
             QuestionProperties properties,
-            EntityManager entityManager
+            EntityManager entityManager,
+            PublishCheckService publishCheckService,
+            SlugService slugService,
+            SanitizationService sanitizationService,
+            EditRulesService editRulesService
     ) {
         this.problemRepository = problemRepository;
         this.topicRepository = topicRepository;
@@ -60,14 +68,32 @@ public class AdminQuestionService {
         this.problemCompanyRepository = problemCompanyRepository;
         this.properties = properties;
         this.entityManager = entityManager;
+        this.publishCheckService = publishCheckService;
+        this.slugService = slugService;
+        this.sanitizationService = sanitizationService;
+        this.editRulesService = editRulesService;
     }
 
     @Transactional
     public AdminQuestionResponse createQuestion(QuestionCreateRequest request, Long createdBy) {
-        // Validate slug uniqueness
-        if (problemRepository.existsBySlug(request.slug())) {
-            throw new ConflictException("DUPLICATE_SLUG", "A question with this slug already exists");
+        // Generate or sanitize slug
+        String slug = request.slug() != null && !request.slug().isBlank()
+                ? slugService.sanitizeSlug(request.slug())
+                : slugService.generateSlug(request.title());
+
+        if (!slugService.isValidSlug(slug)) {
+            throw new ValidationException("INVALID_SLUG", "Slug must be lowercase alphanumeric with hyphens only");
         }
+
+        // Ensure slug uniqueness
+        slug = slugService.makeUnique(slug);
+
+        // Sanitize text fields
+        String sanitizedTitle = sanitizationService.sanitizePlainText(request.title());
+        String sanitizedDescription = sanitizationService.sanitizeHtml(request.description());
+        String sanitizedConstraints = sanitizationService.sanitizeHtml(request.constraints());
+        String sanitizedInputFormat = sanitizationService.sanitizeHtml(request.inputFormat());
+        String sanitizedOutputFormat = sanitizationService.sanitizeHtml(request.outputFormat());
 
         // Validate and get topics
         Set<Topic> topics = request.topics().stream()
@@ -86,14 +112,14 @@ public class AdminQuestionService {
 
         // Create problem
         Problem problem = new Problem(
-                request.title(),
-                request.slug(),
-                request.description(),
+                sanitizedTitle,
+                slug,
+                sanitizedDescription,
                 request.difficulty(),
-                request.constraints()
+                sanitizedConstraints
         );
-        problem.setInputFormat(request.inputFormat());
-        problem.setOutputFormat(request.outputFormat());
+        problem.setInputFormat(sanitizedInputFormat);
+        problem.setOutputFormat(sanitizedOutputFormat);
         problem.setTimeLimitMs(request.timeLimitMs());
         problem.setMemoryLimitKb(request.memoryLimitKb());
         problem.setComparator(request.comparator() != null ? request.comparator() : "TRIM_LINES");
@@ -144,6 +170,10 @@ public class AdminQuestionService {
         Problem problem = problemRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("QUESTION_NOT_FOUND", "Question not found"));
 
+        // Validate edit rules based on status
+        Set<String> changedFields = detectChangedFields(problem, request);
+        editRulesService.validateEditAllowed(problem, changedFields);
+
         // Optimistic locking check
         if (!problem.getRowVersion().equals(request.rowVersion())) {
             throw new ConflictException("STALE_VERSION", "Question was modified by another user");
@@ -154,14 +184,21 @@ public class AdminQuestionService {
             throw new ConflictException("DUPLICATE_SLUG", "A question with this slug already exists");
         }
 
+        // Sanitize text fields
+        String sanitizedTitle = sanitizationService.sanitizePlainText(request.title());
+        String sanitizedDescription = sanitizationService.sanitizeHtml(request.description());
+        String sanitizedConstraints = sanitizationService.sanitizeHtml(request.constraints());
+        String sanitizedInputFormat = sanitizationService.sanitizeHtml(request.inputFormat());
+        String sanitizedOutputFormat = sanitizationService.sanitizeHtml(request.outputFormat());
+
         // Update basic fields
-        problem.setTitle(request.title());
-        problem.setSlug(request.slug());
-        problem.setDescription(request.description());
+        problem.setTitle(sanitizedTitle);
+        problem.setSlug(request.slug()); // slug is immutable per edit rules, but validate anyway
+        problem.setDescription(sanitizedDescription);
         problem.setDifficulty(request.difficulty());
-        problem.setProblemConstraints(request.constraints());
-        problem.setInputFormat(request.inputFormat());
-        problem.setOutputFormat(request.outputFormat());
+        problem.setProblemConstraints(sanitizedConstraints);
+        problem.setInputFormat(sanitizedInputFormat);
+        problem.setOutputFormat(sanitizedOutputFormat);
         problem.setTimeLimitMs(request.timeLimitMs());
         problem.setMemoryLimitKb(request.memoryLimitKb());
         problem.setComparator(request.comparator() != null ? request.comparator() : "TRIM_LINES");
@@ -243,9 +280,7 @@ public class AdminQuestionService {
         Problem problem = problemRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("QUESTION_NOT_FOUND", "Question not found"));
 
-        if (problem.getStatus() != ProblemStatus.DRAFT) {
-            throw new ConflictException("ILLEGAL_STATUS_TRANSITION", "Only DRAFT questions can be deleted");
-        }
+        editRulesService.validateCanDelete(problem);
 
         problemRepository.delete(problem);
     }
@@ -255,11 +290,13 @@ public class AdminQuestionService {
         Problem problem = problemRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("QUESTION_NOT_FOUND", "Question not found"));
 
-        if (problem.getStatus() != ProblemStatus.DRAFT && problem.getStatus() != ProblemStatus.ARCHIVED) {
-            throw new ConflictException("ILLEGAL_STATUS_TRANSITION", "Cannot publish from status: " + problem.getStatus());
-        }
+        editRulesService.validateCanPublish(problem);
 
-        validatePublishReadiness(problem);
+        // Run comprehensive publish check
+        PublishCheckService.PublishCheckResult checkResult = publishCheckService.check(problem);
+        if (!checkResult.canPublish()) {
+            throw new ValidationException("PUBLISH_CHECK_FAILED", "Publish validation failed", checkResult.errors());
+        }
 
         problem.publish();
         Problem saved = problemRepository.save(problem);
@@ -271,9 +308,7 @@ public class AdminQuestionService {
         Problem problem = problemRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("QUESTION_NOT_FOUND", "Question not found"));
 
-        if (problem.getStatus() != ProblemStatus.PUBLISHED) {
-            throw new ConflictException("ILLEGAL_STATUS_TRANSITION", "Cannot archive from status: " + problem.getStatus());
-        }
+        editRulesService.validateCanArchive(problem);
 
         problem.archive();
         Problem saved = problemRepository.save(problem);
@@ -285,9 +320,7 @@ public class AdminQuestionService {
         Problem problem = problemRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("QUESTION_NOT_FOUND", "Question not found"));
 
-        if (problem.getStatus() != ProblemStatus.ARCHIVED) {
-            throw new ConflictException("ILLEGAL_STATUS_TRANSITION", "Cannot unarchive from status: " + problem.getStatus());
-        }
+        editRulesService.validateCanUnarchive(problem);
 
         problem.unarchive();
         Problem saved = problemRepository.save(problem);
@@ -299,9 +332,14 @@ public class AdminQuestionService {
         Problem original = problemRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("QUESTION_NOT_FOUND", "Question not found"));
 
+        editRulesService.validateCanClone(original);
+
+        // Generate unique slug for clone
+        String cloneSlug = slugService.makeUnique(original.getSlug() + "-copy");
+
         Problem clone = new Problem(
                 original.getTitle() + " (Copy)",
-                original.getSlug() + "-copy-" + System.currentTimeMillis(),
+                cloneSlug,
                 original.getDescription(),
                 original.getDifficulty(),
                 original.getProblemConstraints()
@@ -327,8 +365,8 @@ public class AdminQuestionService {
         // Copy test cases
         for (TestCase tc : original.getTestCases()) {
             TestCase newTc = new TestCase(
-                    tc.getInput(),
-                    tc.getExpectedOutput(),
+                    sanitizationService.sanitizeCode(tc.getInput()),
+                    sanitizationService.sanitizeCode(tc.getExpectedOutput()),
                     tc.isHidden(),
                     tc.getSequenceOrder()
             );
@@ -365,57 +403,13 @@ public class AdminQuestionService {
         Problem problem = problemRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("QUESTION_NOT_FOUND", "Question not found"));
 
-        List<String> errors = new ArrayList<>();
-        List<String> warnings = new ArrayList<>();
+        PublishCheckService.PublishCheckResult result = publishCheckService.check(problem);
 
-        // Required fields
-        if (problem.getTitle() == null || problem.getTitle().isBlank()) errors.add("Title is required");
-        if (problem.getSlug() == null || problem.getSlug().isBlank()) errors.add("Slug is required");
-        if (problem.getDescription() == null || problem.getDescription().isBlank()) errors.add("Description is required");
-        if (problem.getDifficulty() == null) errors.add("Difficulty is required");
-        if (problem.getProblemConstraints() == null || problem.getProblemConstraints().isBlank()) errors.add("Constraints are required");
-        if (problem.getInputFormat() == null || problem.getInputFormat().isBlank()) errors.add("Input format is required");
-        if (problem.getOutputFormat() == null || problem.getOutputFormat().isBlank()) errors.add("Output format is required");
-        if (problem.getTimeLimitMs() == null || problem.getTimeLimitMs() < properties.getLimits().getMinTimeMs()) errors.add("Time limit too low");
-        if (problem.getMemoryLimitKb() == null || problem.getMemoryLimitKb() < properties.getLimits().getMinMemoryKb()) errors.add("Memory limit too low");
-        if (problem.getComparator() == null || problem.getComparator().isBlank()) errors.add("Comparator is required");
-
-        // At least one topic
-        if (problem.getTopics().isEmpty()) errors.add("At least one topic is required");
-
-        // At least one company
-        if (problem.getProblemCompanies().isEmpty()) errors.add("At least one company is required");
-
-        // Test cases
-        long sampleCount = problem.getTestCases().stream().filter(tc -> !tc.isHidden()).count();
-        long hiddenCount = problem.getTestCases().stream().filter(TestCase::isHidden).count();
-        if (sampleCount < properties.getPublish().getMinSampleCases()) {
-            errors.add("At least " + properties.getPublish().getMinSampleCases() + " sample test case(s) required");
-        }
-        if (hiddenCount < properties.getPublish().getMinHiddenCases()) {
-            errors.add("At least " + properties.getPublish().getMinHiddenCases() + " hidden test case(s) required");
-        }
-
-        // Languages
-        if (problem.getProblemLanguages().isEmpty()) {
-            warnings.add("No languages configured - question will not be runnable");
-        } else if (problem.getProblemLanguages().stream().noneMatch(ProblemLanguage::getEnabled)) {
-            warnings.add("No enabled languages - question will not be runnable");
-        }
-
-        // Sequence order gaps
-        List<Integer> seqOrders = problem.getTestCases().stream()
-                .map(TestCase::getSequenceOrder)
-                .sorted()
-                .toList();
-        for (int i = 0; i < seqOrders.size(); i++) {
-            if (!seqOrders.get(i).equals(i)) {
-                warnings.add("Test case sequence order has gaps");
-                break;
-            }
-        }
-
-        return new PublishCheckResponse(errors.isEmpty(), errors, warnings);
+        return new PublishCheckResponse(
+                result.canPublish(),
+                result.errors(),
+                result.warnings()
+        );
     }
 
     public StatsResponse getStats() {
@@ -538,4 +532,46 @@ public class AdminQuestionService {
             long published,
             long archived
     ) {}
+
+    private Set<String> detectChangedFields(Problem problem, QuestionUpdateRequest request) {
+        Set<String> changed = new HashSet<>();
+
+        if (!java.util.Objects.equals(problem.getTitle(), request.title())) changed.add("title");
+        if (!java.util.Objects.equals(problem.getSlug(), request.slug())) changed.add("slug");
+        if (!java.util.Objects.equals(problem.getDescription(), request.description())) changed.add("description");
+        if (problem.getDifficulty() != request.difficulty()) changed.add("difficulty");
+        if (!java.util.Objects.equals(problem.getProblemConstraints(), request.constraints())) changed.add("problemConstraints");
+        if (!java.util.Objects.equals(problem.getInputFormat(), request.inputFormat())) changed.add("inputFormat");
+        if (!java.util.Objects.equals(problem.getOutputFormat(), request.outputFormat())) changed.add("outputFormat");
+        if (!java.util.Objects.equals(problem.getTimeLimitMs(), request.timeLimitMs())) changed.add("timeLimitMs");
+        if (!java.util.Objects.equals(problem.getMemoryLimitKb(), request.memoryLimitKb())) changed.add("memoryLimitKb");
+        if (!java.util.Objects.equals(problem.getComparator(), request.comparator())) changed.add("comparator");
+        if (!java.util.Objects.equals(problem.getFloatEpsilon(), request.floatEpsilon())) changed.add("floatEpsilon");
+
+        // Check topics
+        Set<String> currentTopics = new HashSet<>();
+        for (Topic t : problem.getTopics()) {
+            currentTopics.add(t.getName());
+        }
+        Set<String> newTopics = new HashSet<>(request.topics());
+        if (!currentTopics.equals(newTopics)) changed.add("topics");
+
+        // Check companies
+        Set<Long> currentCompanyIds = new HashSet<>();
+        for (ProblemCompany pc : problem.getProblemCompanies()) {
+            currentCompanyIds.add(pc.getCompany().getId());
+        }
+        Set<Long> newCompanyIds = new HashSet<>();
+        for (QuestionUpdateRequest.CompanyRequest cr : request.companies()) {
+            newCompanyIds.add(cr.id());
+        }
+        if (!currentCompanyIds.equals(newCompanyIds)) changed.add("companies");
+
+        // Check test cases, languages, hints - simplified comparison
+        if (request.testCases() != null) changed.add("testCases");
+        if (request.languages() != null) changed.add("languages");
+        if (request.hints() != null) changed.add("hints");
+
+        return changed;
+    }
 }
