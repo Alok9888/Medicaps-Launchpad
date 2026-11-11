@@ -1,7 +1,6 @@
+package com.project.backend.question.dto.response;
 
-package com.project.backend.dto.response;
-
-import com.project.backend.model.Difficulty;
+import com.project.backend.question.domain.Difficulty;
 
 public record QuestionSummaryResponse(
         Long id,

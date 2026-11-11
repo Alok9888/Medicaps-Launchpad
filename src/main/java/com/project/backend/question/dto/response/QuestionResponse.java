@@ -1,6 +1,6 @@
-package com.project.backend.dto.response;
+package com.project.backend.question.dto.response;
 
-import com.project.backend.model.Difficulty;
+import com.project.backend.question.domain.Difficulty;
 import java.util.List;
 
 public record QuestionResponse(

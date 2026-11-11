@@ -1,4 +1,4 @@
-package com.project.backend.model;
+package com.project.backend.question.domain;
 
 public enum ProblemStatus {
     DRAFT,

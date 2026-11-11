@@ -1,14 +1,14 @@
+package com.project.backend.question.service;
 
-package com.project.backend.service;
-
-import com.project.backend.dto.response.QuestionResponse;
-import com.project.backend.dto.response.QuestionSummaryResponse;
-import com.project.backend.dto.response.SampleTestCaseResponse;
-import com.project.backend.model.Difficulty;
-import com.project.backend.model.Problem;
-import com.project.backend.model.ProblemStatus;
-import com.project.backend.model.Topic;
-import com.project.backend.repository.ProblemRepository;
+import com.project.backend.common.exception.NotFoundException;
+import com.project.backend.question.domain.Difficulty;
+import com.project.backend.question.domain.Problem;
+import com.project.backend.question.domain.ProblemStatus;
+import com.project.backend.question.domain.Topic;
+import com.project.backend.question.dto.response.QuestionResponse;
+import com.project.backend.question.dto.response.QuestionSummaryResponse;
+import com.project.backend.question.dto.response.SampleTestCaseResponse;
+import com.project.backend.question.repository.ProblemRepository;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
@@ -17,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -94,7 +95,7 @@ public class QuestionService {
         Problem problem = problemRepository
                 .findByIdAndStatus(id, ProblemStatus.PUBLISHED)
                 .orElseThrow(() ->
-                        new RuntimeException("Question not found"));
+                        new NotFoundException("QUESTION_NOT_FOUND", "Question not found"));
 
         return mapToResponse(problem);
     }
@@ -105,7 +106,7 @@ public class QuestionService {
         Problem problem = problemRepository
                 .findBySlugAndStatus(slug, ProblemStatus.PUBLISHED)
                 .orElseThrow(() ->
-                        new RuntimeException("Question not found"));
+                        new NotFoundException("QUESTION_NOT_FOUND", "Question not found"));
 
         return mapToResponse(problem);
     }

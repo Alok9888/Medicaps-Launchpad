@@ -1,10 +1,10 @@
-package com.project.backend.controller;
+package com.project.backend.question.web;
 
-import com.project.backend.dto.response.QuestionResponse;
-import com.project.backend.dto.response.QuestionSummaryResponse;
-import com.project.backend.dto.response.SampleTestCaseResponse;
-import com.project.backend.model.Difficulty;
-import com.project.backend.service.QuestionService;
+import com.project.backend.question.dto.response.QuestionResponse;
+import com.project.backend.question.dto.response.QuestionSummaryResponse;
+import com.project.backend.question.dto.response.SampleTestCaseResponse;
+import com.project.backend.question.domain.Difficulty;
+import com.project.backend.question.service.QuestionService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
