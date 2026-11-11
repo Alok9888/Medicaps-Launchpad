@@ -6,6 +6,7 @@ import com.project.backend.question.dto.request.TestCaseReorderRequest;
 import com.project.backend.question.dto.request.TestCaseUpdateRequest;
 import com.project.backend.question.dto.response.TestCaseSummary;
 import com.project.backend.question.service.AdminTestCaseService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +15,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin/questions/{questionId}/test-cases")
+@SecurityRequirement(name = "admin-key")
 public class AdminTestCaseController {
 
     private final AdminTestCaseService adminTestCaseService;

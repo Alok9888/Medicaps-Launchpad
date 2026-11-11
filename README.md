@@ -1,6 +1,7 @@
-# Medicaps Launchpad API
 
-A small Spring Boot API for browsing a coding question bank. It uses PostgreSQL, and Flyway sets up the tables and loads a few sample questions when the app starts.
+## Medicaps Launchpad API
+
+A Spring Boot API for the coding question bank.
 
 ## API
 
@@ -11,6 +12,8 @@ All endpoints are under `/api/v1/questions`:
 - `GET /api/v1/questions/slug/{slug}` returns a question by its slug.
 
 The list endpoint accepts `page` (default `0`), `size` (default `20`, capped at `100`), `difficulty` (`EASY`, `MEDIUM`, or `HARD`), `topic`, and `search` (matches question titles). Detail responses include the description, constraints, topic names, and visible sample test cases. Hidden test cases stay out of API responses.
+
+Admin routes under `/api/v1/admin/**` require `X-Admin-Key`. Internal execution routes under `/api/v1/internal/**` require `X-Internal-Key`; set `INTERNAL_API_KEY` to enable them. They return execution configuration and hidden test cases, so keep the key private.
 
 Example:
 
@@ -31,10 +34,10 @@ Flyway migrations live in `src/main/resources/db/migration`:
 
 ## Run it
 
-You’ll need JDK 21 and PostgreSQL. Start the app with the Maven wrapper:
+You need JDK 21 and PostgreSQL. Start the app with the Maven wrapper:
 
 ```powershell
 .\mvnw.cmd spring-boot:run
 ```
 
-The API listens on `http://localhost:8080`. CI runs `./mvnw -B clean verify` with a PostgreSQL service.
+The API listens on `http://localhost:8080`. CI runs `./mvnw -B clean verify`; tests use an in-memory H2 database.

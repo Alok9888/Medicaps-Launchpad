@@ -5,6 +5,7 @@ import com.project.backend.question.dto.request.QuestionCreateRequest;
 import com.project.backend.question.dto.request.QuestionUpdateRequest;
 import com.project.backend.question.dto.response.AdminQuestionResponse;
 import com.project.backend.question.service.AdminQuestionService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
@@ -16,6 +17,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin/questions")
+@SecurityRequirement(name = "admin-key")
 public class AdminQuestionController {
 
     private final AdminQuestionService adminQuestionService;

@@ -3,6 +3,7 @@ package com.project.backend.question.web;
 import com.project.backend.question.dto.request.LanguageRequest;
 import com.project.backend.question.dto.response.LanguageSummary;
 import com.project.backend.question.service.AdminLanguageService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -11,6 +12,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin/questions/{questionId}/languages")
+@SecurityRequirement(name = "admin-key")
 public class AdminLanguageController {
 
     private final AdminLanguageService adminLanguageService;

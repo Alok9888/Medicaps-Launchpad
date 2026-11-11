@@ -7,6 +7,7 @@ import com.project.backend.question.dto.response.CompanySummary;
 import com.project.backend.question.dto.response.LanguageSummary;
 import com.project.backend.question.dto.response.TopicSummary;
 import com.project.backend.question.service.AdminCatalogService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +16,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin/catalog")
+@SecurityRequirement(name = "admin-key")
 public class AdminCatalogController {
 
     private final AdminCatalogService adminCatalogService;

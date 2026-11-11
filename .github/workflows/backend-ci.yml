@@ -9,30 +9,6 @@ jobs:
     name: Build and Verify
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_DB: launchpad_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    env:
-      TEST_DB_URL: jdbc:postgresql://localhost:5432/launchpad_test
-      TEST_DB_USERNAME: postgres
-      TEST_DB_PASSWORD: postgres
-      SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/launchpad_test
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
-      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
