@@ -1,7 +1,6 @@
+# Medicaps Launchpad API
 
-## Medicaps Launchpad API
-
-A Spring Boot API for the coding question bank.
+A small Spring Boot API for browsing a coding question bank. It uses PostgreSQL, and Flyway sets up the tables and loads a few sample questions when the app starts.
 
 ## API
 
