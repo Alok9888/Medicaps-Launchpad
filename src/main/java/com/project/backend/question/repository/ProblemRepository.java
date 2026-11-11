@@ -26,11 +26,21 @@ public interface ProblemRepository extends JpaRepository<Problem, Long>,
             ProblemStatus status
     );
 
+    Optional<Problem> findBySlug(String slug);
+
     boolean existsBySlug(String slug);
 
     long countByStatus(ProblemStatus status);
 
     long countByTopicsContaining(Topic topic);
+
+    @Query("""
+        SELECT p
+        FROM Problem p
+        WHERE p.id IN :ids
+        AND p.status = com.project.backend.question.domain.ProblemStatus.PUBLISHED
+    """)
+    List<Problem> findPublishedByIds(@Param("ids") List<Long> ids);
 
     @Query("""
         SELECT t.id, t.name, COUNT(DISTINCT p.id)

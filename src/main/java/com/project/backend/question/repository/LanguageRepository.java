@@ -12,4 +12,5 @@ public interface LanguageRepository extends JpaRepository<Language, Long> {
     Optional<Language> findByName(String name);
     boolean existsByName(String name);
     List<Language> findByIsActiveTrue();
+    Optional<Language> findByJudge0LanguageId(Integer judge0LanguageId);
 }
