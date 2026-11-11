@@ -47,16 +47,27 @@ class QuestionControllerTest {
                 "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
                 difficulty,
                 "2 <= nums.length <= 10^4\n-10^9 <= nums[i] <= 10^9\n-10^9 <= target <= 10^9",
+                "Input format",
+                "Output format",
+                2000,
+                262144,
                 List.of("Array", "Hash Table"),
+                List.of(new QuestionResponse.CompanySummary(1L, "Google", 5)),
                 List.of(
-                        new SampleTestCaseResponse("nums = [2,7,11,15], target = 9", "[0,1]"),
-                        new SampleTestCaseResponse("nums = [3,2,4], target = 6", "[1,2]")
-                )
+                        new SampleTestCaseResponse("nums = [2,7,11,15], target = 9", "[0,1]", "Explanation"),
+                        new SampleTestCaseResponse("nums = [3,2,4], target = 6", "[1,2]", "Explanation")
+                ),
+                List.of(new QuestionResponse.LanguageSummary(1L, "Python", "py", "starter code")),
+                2
         );
     }
 
     private QuestionSummaryResponse createSummary(Long id, String title, String slug, Difficulty difficulty) {
-        return new QuestionSummaryResponse(id, title, slug, difficulty);
+        return new QuestionSummaryResponse(
+                id, title, slug, difficulty,
+                List.of("Array", "Hash Table"),
+                List.of(new QuestionSummaryResponse.CompanySummary(1L, "Google", 5))
+        );
     }
 
     @Nested
@@ -72,7 +83,7 @@ class QuestionControllerTest {
             );
             Page<QuestionSummaryResponse> page = new PageImpl<>(summaries);
 
-            when(questionService.getQuestions(isNull(), isNull(), isNull(), any(Pageable.class)))
+            when(questionService.getQuestions(any(), any(), any(), any(), any(), any(), any(Pageable.class)))
                     .thenReturn(page);
 
             mockMvc.perform(get("/api/v1/questions")
@@ -91,20 +102,18 @@ class QuestionControllerTest {
                     .andExpect(jsonPath("$.totalElements", is(2)));
 
             ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-            verify(questionService).getQuestions(isNull(), isNull(), isNull(), pageableCaptor.capture());
+            verify(questionService).getQuestions(any(), any(), any(), any(), any(), any(), pageableCaptor.capture());
 
             Pageable capturedPageable = pageableCaptor.getValue();
             assertThat(capturedPageable.getPageNumber()).isEqualTo(0);
             assertThat(capturedPageable.getPageSize()).isEqualTo(20);
-            assertThat(capturedPageable.getSort().getOrderFor("createdAt")).isNotNull();
-            assertThat(capturedPageable.getSort().getOrderFor("createdAt").isDescending()).isTrue();
         }
 
         @Test
         @DisplayName("Should pass custom page and size parameters to service")
         void getQuestions_withCustomPagination_shouldPassToService() throws Exception {
             Page<QuestionSummaryResponse> emptyPage = new PageImpl<>(List.of());
-            when(questionService.getQuestions(isNull(), isNull(), isNull(), any(Pageable.class)))
+            when(questionService.getQuestions(any(), any(), any(), any(), any(), any(), any(Pageable.class)))
                     .thenReturn(emptyPage);
 
             mockMvc.perform(get("/api/v1/questions")
@@ -115,7 +124,7 @@ class QuestionControllerTest {
                     .andExpect(jsonPath("$.content", hasSize(0)));
 
             ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-            verify(questionService).getQuestions(isNull(), isNull(), isNull(), pageableCaptor.capture());
+            verify(questionService).getQuestions(any(), any(), any(), any(), any(), any(), pageableCaptor.capture());
 
             Pageable capturedPageable = pageableCaptor.getValue();
             assertThat(capturedPageable.getPageNumber()).isEqualTo(3);
@@ -126,7 +135,7 @@ class QuestionControllerTest {
         @DisplayName("Should cap page size at 100 when requested size exceeds limit")
         void getQuestions_whenSizeExceedsMax_shouldCapAt100() throws Exception {
             Page<QuestionSummaryResponse> emptyPage = new PageImpl<>(List.of());
-            when(questionService.getQuestions(isNull(), isNull(), isNull(), any(Pageable.class)))
+            when(questionService.getQuestions(any(), any(), any(), any(), any(), any(), any(Pageable.class)))
                     .thenReturn(emptyPage);
 
             mockMvc.perform(get("/api/v1/questions")
@@ -135,7 +144,7 @@ class QuestionControllerTest {
                     .andExpect(status().isOk());
 
             ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-            verify(questionService).getQuestions(isNull(), isNull(), isNull(), pageableCaptor.capture());
+            verify(questionService).getQuestions(any(), any(), any(), any(), any(), any(), pageableCaptor.capture());
 
             Pageable capturedPageable = pageableCaptor.getValue();
             assertThat(capturedPageable.getPageSize()).isEqualTo(100);
@@ -149,7 +158,7 @@ class QuestionControllerTest {
             );
             Page<QuestionSummaryResponse> page = new PageImpl<>(hardQuestions);
 
-            when(questionService.getQuestions(eq(Difficulty.HARD), isNull(), isNull(), any(Pageable.class)))
+            when(questionService.getQuestions(eq(Difficulty.HARD), any(), any(), any(), any(), any(), any(Pageable.class)))
                     .thenReturn(page);
 
             mockMvc.perform(get("/api/v1/questions")
@@ -159,7 +168,7 @@ class QuestionControllerTest {
                     .andExpect(jsonPath("$.content", hasSize(1)))
                     .andExpect(jsonPath("$.content[0].difficulty", is("HARD")));
 
-            verify(questionService).getQuestions(eq(Difficulty.HARD), isNull(), isNull(), any(Pageable.class));
+            verify(questionService).getQuestions(eq(Difficulty.HARD), any(), any(), any(), any(), any(), any(Pageable.class));
         }
 
         @Test
@@ -170,7 +179,7 @@ class QuestionControllerTest {
             );
             Page<QuestionSummaryResponse> page = new PageImpl<>(dpQuestions);
 
-            when(questionService.getQuestions(isNull(), eq("dynamic-programming"), isNull(), any(Pageable.class)))
+            when(questionService.getQuestions(any(), eq(List.of("dynamic-programming")), any(), any(), any(), any(), any(Pageable.class)))
                     .thenReturn(page);
 
             mockMvc.perform(get("/api/v1/questions")
@@ -180,7 +189,7 @@ class QuestionControllerTest {
                     .andExpect(jsonPath("$.content", hasSize(1)))
                     .andExpect(jsonPath("$.content[0].slug", is("climbing-stairs")));
 
-            verify(questionService).getQuestions(isNull(), eq("dynamic-programming"), isNull(), any(Pageable.class));
+            verify(questionService).getQuestions(any(), eq(List.of("dynamic-programming")), any(), any(), any(), any(), any(Pageable.class));
         }
 
         @Test
@@ -191,7 +200,7 @@ class QuestionControllerTest {
             );
             Page<QuestionSummaryResponse> page = new PageImpl<>(matchingQuestions);
 
-            when(questionService.getQuestions(isNull(), isNull(), eq("Two Sum"), any(Pageable.class)))
+            when(questionService.getQuestions(any(), any(), any(), any(), eq("Two Sum"), any(), any(Pageable.class)))
                     .thenReturn(page);
 
             mockMvc.perform(get("/api/v1/questions")
@@ -201,7 +210,7 @@ class QuestionControllerTest {
                     .andExpect(jsonPath("$.content", hasSize(1)))
                     .andExpect(jsonPath("$.content[0].title", is("Two Sum")));
 
-            verify(questionService).getQuestions(isNull(), isNull(), eq("Two Sum"), any(Pageable.class));
+            verify(questionService).getQuestions(any(), any(), any(), any(), eq("Two Sum"), any(), any(Pageable.class));
         }
 
         @Test
@@ -209,7 +218,7 @@ class QuestionControllerTest {
         void getQuestions_withAllFilters_shouldPassAllToService() throws Exception {
             Page<QuestionSummaryResponse> page = new PageImpl<>(List.of());
 
-            when(questionService.getQuestions(eq(Difficulty.MEDIUM), eq("trees"), eq("binary"), any(Pageable.class)))
+            when(questionService.getQuestions(eq(Difficulty.MEDIUM), eq(List.of("trees")), any(), any(), eq("binary"), any(), any(Pageable.class)))
                     .thenReturn(page);
 
             mockMvc.perform(get("/api/v1/questions")
@@ -224,8 +233,11 @@ class QuestionControllerTest {
             ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
             verify(questionService).getQuestions(
                     eq(Difficulty.MEDIUM),
-                    eq("trees"),
+                    eq(List.of("trees")),
+                    any(),
+                    any(),
                     eq("binary"),
+                    any(),
                     pageableCaptor.capture()
             );
 

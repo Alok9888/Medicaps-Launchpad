@@ -16,6 +16,10 @@ public class ValidationException extends RuntimeException {
         this.details = details;
     }
 
+    public ValidationException(String code, String message) {
+        this(code, message, List.of());
+    }
+
     public String getCode() {
         return code;
     }

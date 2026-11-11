@@ -34,6 +34,9 @@ public class TestCase {
     @Column(name = "sequence_order", nullable = false)
     private Integer sequenceOrder;
 
+    @Column(columnDefinition = "TEXT")
+    private String explanation;
+
     protected TestCase() {
     }
 
@@ -91,5 +94,13 @@ public class TestCase {
 
     public void setSequenceOrder(Integer sequenceOrder) {
         this.sequenceOrder = sequenceOrder;
+    }
+
+    public String getExplanation() {
+        return explanation;
+    }
+
+    public void setExplanation(String explanation) {
+        this.explanation = explanation;
     }
 }
